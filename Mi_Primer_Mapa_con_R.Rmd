@@ -1,0 +1,363 @@
+---
+title: "Mi Primer Mapa con R"
+author: "Duberli E. Gonzáles"
+date: "2 de marzo de 2019"
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+  word_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    df_print: paged
+    highlight: tango
+    number_sections: yes
+    theme: default
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 14px;
+  }
+td {  /* Table  */
+  font-size: 8px;
+}
+h1.title {
+  font-size: 28px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+  font-size: 20px;
+  color: dodgerblue4;
+  font-weight: bold;
+}
+h2 { /* Header 2 */
+    font-size: 16px;
+  color: dodgerblue4;
+  font-weight: bold;
+}
+h3 { /* Header 3 */
+  font-size: 14px;
+  font-family: "Times New Roman", Times, serif;
+  color: dodgerblue4;
+  font-weight: bold;
+}
+code.r{ /* Code block */
+    font-size: 14px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 14px;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Vamos a constuir nuestro Primer Mapa utilizando R.
+
+![](Mapas/Peru2.jpeg)
+
+#Presentación
+
+Este es un tutorial en el que se muestra paso a paso la elaboración de un Mapa utilizando R. Este tutorial utiliza datos en formato *Shapefile* (.shp) de los límites y las capitales departamentales del Perú. Los archivos *Shapefile* de los límites departamentales, provinciales y distritales a escala 1:100,000 se encuentran disponibles de manera gratuita en la sección Descargas de la página web del **Instituto Geográfico Nacional** (<http://www.idep.gob.pe/>). Varios geoportales de instituciones públicas del Perú disponibilizan de manera gratuita las bases de datos cartográficas del país. El sitio web <https://www.geogpsperu.com/> disponibiliza algunas de estas bases de datos, las cuales deben ser utilizadas bajo su propia responsabilidad.
+
+Si bien se detalla paso a paso todo el procedimiento a seguir para elaborar un mapa utilizando R, ejecutar este tutorial requiere de conocimientos intermedios de R y Sistemas de Informaciones Geográficas (GIS). El presente tutorial puede ser reproducido utilizando el IDE RStudio y la versión 3.5.2 de R.
+
+Comenzamos!
+
+#Base de datos
+Si bien el mapa que aquí se presenta corresponde a la división política departamental del país con sus respectivas capitales departamentales, este tutotial se puede reproducir utilizando cualquier base de datos en formato *Shapefile*.
+
+#Paso 1
+
+##Directorio de Trabajo
+En su explorador de windows cree una carpeta de trabajo matriz (ej. D:/GIS_con_R) y dentro de ella otra carpeta (ej. G:/GIS_con_R/SHP) en la que deberá guardar los archivos en formato *Shapefile* con los que decida trabajar.
+
+##Crear un nuevo proyecto de R
+Ejecute RStudio. En la pantalla principal de RStudio, seleccione **File/New Project** en el menú principal, seguidamente seleccione la opción **Existing Directory**. Haciendo click en el ícono **Browse** dirijase a la carpeta de trabajo matriz, selecionela y haga click en **Open**; finalmente haga click en **Create Project**.
+
+Si todo va bien, en su carpeta de trabajo matriz debería haberse creado un archivo con el mismo nombre de dicha carpeta y la extensión **.RProj** (ej. D:/GIS_con_R/GIS_con_R.Rproj).
+La creacción de este archivo permite que toda la información que trabajará se almacene en la carpeta matriz anteriormente creada.
+
+##Crear un nuevo Script R
+A coninuación, cree un nuevo Script en el que escribirá el cógido R necesario para la elaboración de su primer mapa utilizando R. Para ello dirijase a **File/New File/R Script**; seleccione la opción **Save** en el menú **File** o haga click en el ícono **Save current document** y guarde el Script. Note que es direccionado de manera automática a la carpeta matriz de trabajo.
+
+#Paso 2
+
+##Bibliotecas
+R utiliza diferentes bibliotecas para realizar el procesamiento de diversos tipos de datos. Elaborar un mapa en R requerirá entonces cargar las bibliotecas necesarias para ello. En este tutorial utilizaremos las bibliotecas `dplyr`, `ggplot2` y `sf`, las cuales deberán estar previamente instaladas en su computador. Para cargar las bibliotecas utilice la función `library()`.
+
+```{r message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(ggsn)
+```
+
+**Importante**: Recuerde que puede instalar una biblioteca utilizando la función `install.packages()` escribiendo dentro del paréntesis el nombre del paquete entre comillas - ej. `install.packages('dplyr')` - para ello requiere estar conectado a una red de internet.
+
+#Paso 3
+Ahora se encuentra listo para empezar a trabajar con la base de datos GIS.
+
+##Lectura de Datos
+Para acceder a la base de datos, es decir a los archivos *Shapefile* utilice la función `st_read()` del paquete `sf`, el cual permite trabajar con datos vectoriales espaciales.
+
+Para leer el archivo *Shapefile* de los departamentos del Perú, escriba y ejecute el siguiente código:
+```{r message=FALSE}
+peru <- st_read('./SHP/departamentos.shp')
+```
+
+Para leer el archivo de las capitales departamentales, escriba y ejecute:
+```{r message=FALSE}
+cap_dep <- st_read('./SHP/Cap_Dep.shp')
+```
+
+##Explorar la base de datos
+Las funciones `st_geometry_type()`, `st_crs()` y `st_bbox` pueden ser utilizadas para explorar la base de datos con las que se está trabajando 
+
+```{r message=FALSE}
+st_geometry_type(peru)
+st_crs(peru)
+st_bbox(peru)
+```
+
+**Nota**: Recuerde que los archivos *Shapefile* deberán contar con un Sistema de Referencia Espacial.
+
+Las funciones `summary()`, `head()`, `str()`, entre otras; son también utilizadas para explorar la base de datos con las que esté trabajando en R. 
+
+##Manipular la base de datos
+En algunos casos será necesario manipular la base de datos. A manera de ejemplo, utilice la función `filter()` del paquete `dplyr` para eliminar el punto que representa a la capital de la provincia constitucional del Callao.
+
+```{r message=FALSE}
+cap_dep <- st_read('./SHP/Cap_Dep.shp') %>% 
+  filter(Nombre != 'PROV. CONSTITUCIONAL CALLAO')
+```
+
+#Paso 4
+
+##Gráfico simple
+La función `plot()` del paquete base de R, permite graficar archivos espaciales. Dicha función producirá un *Multiplot* con tantos gráficos como atributos tenga el *Shapefile*, tal como se muestra a continuación:
+
+```{r message=FALSE}
+plot(peru)
+```
+
+##Gráfico avanzado
+Para elaborar su primer mapa en R, este tutotial utiliza el paquete `Ggplot2`, tal vez el paquete más utilizado para elaborar gráficos avanzados y de alto impacto. `Ggplot2` construye un gráfico combinando una o varias capas de uno o más conjuntos de datos.
+
+Presentación inicial: División política departamental del Perú.
+```{r message=FALSE}
+ggplot() +
+  geom_sf(data = peru)
+```
+
+Mejorar el gráfico incluyendo otros argumentos a la función `geom_sf()`. Para ello, en primer lugar creeamos la función `color()` para darle un poco de color a nuestro mapa.
+
+```{r message=FALSE}
+color = colorRampPalette(c('#01579B','#E1F5FE'))
+```
+
+Ahora utilicemos la función `color()` para mejorar el Mapa departamental del Perú.
+```{r message=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25))
+```
+
+El comando `fill = color (25)` indica que cada uno de los 25 departamentos del Perú tendrá un color diferente dentro de la rampa de colores creados anteriormente.
+
+A continuación agregamos una capa con los nombres de los departamentos, los cuales se encuentran en la tabla de atributos del *Shapefile*.
+```{r message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25)) +
+  geom_sf_text(peru, mapping = aes(label = DEPARTAMEN), colour = "black", size = 2.5) 
+```
+
+También podemos adicionar un Título para nuestro mapa, así mismo podemos editar el nombre de nuestros "ejes", que en este caso corresponden a la Longitud (Eje X) y a la Latitud (Eje Y).
+```{r message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25)) +
+  geom_sf_text(peru, mapping = aes(label = DEPARTAMEN), colour = "black", size = 2.5) +
+  ggtitle('Perú : Departamentos') +
+  xlab('Longitud') +
+  ylab('Latitud')
+```
+
+Si por el contrario se decide no mostrar el nombre de los ejes y sólo los valores de longitud y latitud, simplemente modificamos el Script.
+```{r message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25)) +
+  geom_sf_text(peru, mapping = aes(label = DEPARTAMEN), colour = "black", size = 2.5) +
+  ggtitle('Perú : Departamentos') +
+  xlab('') +
+  ylab('')
+```
+
+Si en lugar de mostrar sólo el mapa departamental, deseamos incluir las capitales departamentales y el nombre de cada capital, entonces adicionamos una capa con los puntos de las capitales de cada departamento, haciendo uso de la función `geom_point()`.
+
+```{r message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25))  +
+  geom_point(cap_dep, mapping = aes(x = X, y = Y), shape = 16) +
+  geom_sf_text(cap_dep, mapping = aes(label = Nombre),
+               colour = "black", size = 2, position = position_nudge(y = 0.15)) +
+  ggtitle('Perú : Capitales de Departamento') +
+  xlab('') +
+  ylab('') 
+```
+
+Finalmente, adicionaremos el Norte y la Escala gráfica de nuestro Mapa, para ellos se utilizan las funciones `north()` e `scalebar()` del paquete `ggsn`.
+
+```{r message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25))  +
+  geom_point(cap_dep, mapping = aes(x = X, y = Y), shape = 16) +
+  geom_sf_text(cap_dep, mapping = aes(label = Nombre),
+               colour = "black", size = 2, position = position_nudge(y = 0.15)) +
+  ggtitle('Perú : Capitales de Departamento') +
+  xlab('') +
+  ylab('') +
+  north(peru) +
+  scalebar(peru, dist = 250, dist_unit = "km",
+           transform = TRUE, model = "WGS84",
+           st.size = 3.5, location = "bottomleft")
+```
+
+
+#Paso 5
+
+##Exportar Mapa en PDF
+R ofrece diversas opciones para guardar la información generada. A continuación utilizaremos la funcion `pdf()` para expotar nuestros mapas en un Documento PDF. Para ello, cree una carpeta con el nombre **Mapas** dentro de la carpeta de trabajo matriz (ej. G:/GIS_con_R/Mapas).
+
+
+```{r message=FALSE, warning=FALSE}
+pdf("./Mapas/Peru.pdf", width = 8.2, height = 11.7)
+
+ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25))  +
+  geom_point(cap_dep, mapping = aes(x = X, y = Y), shape = 16) +
+  geom_sf_text(cap_dep, mapping = aes(label = Nombre),
+               colour = "black", size = 2, position = position_nudge(y = 0.15)) +
+  ggtitle('Perú : Capitales de Departamento') +
+  xlab('') +
+  ylab('') +
+  north(peru) +
+  scalebar(peru, dist = 250, dist_unit = "km",
+           transform = TRUE, model = "WGS84",
+           st.size = 3.5, location = "bottomleft")
+
+dev.off()
+```
+
+**Nota**: El primer atritbuto de la función `pdf()` indica el nombre y la ruta donde será guardado el archivo PDF que se va crear, los atributos `width` y `height` indican las dimensiones del gráfico en pulgadas. La función `dev.off` cierra las ventanas gráficas.
+
+**Dónde está el Mapa en PDF?**
+
+Dirijase a la carpeta Mapas dentro de la carpeta matriz de trabajo y verifique que el Archivo  **Peru.pdf** haya sido creado.
+
+
+##Bonus: Multiplot en formato JPEG
+Ahora vamos a crear un gráfico múltiple en formato **JPEG**, en el que se muestren los mapas presentados al inicio de este Tutorial.
+
+Primero, será necesario ejecutar la función `multiplot()` que se detalla a continuación:
+
+```{r message=FALSE}
+#Funcion para crear un gráfico multiple con ggplot2
+{multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+}
+```
+
+Seguidamente, creamos dos objetos a los cuales le asignaremos  cada uno de los mapas creados anteriormente:
+
+```{r message=FALSE}
+#Objeto p1 para almacenar el mapa de los departamentos del Perú
+p1 <- ggplot() +
+  geom_sf(data = peru, color = 'grey80', fill = color (25))  +
+  geom_sf_text(peru, mapping = aes(label = DEPARTAMEN), colour = "black", size = 2.5) +
+  ggtitle('Perú : Departamentos') +
+  xlab('') +
+  ylab('') +
+  coord_sf() +
+  north(peru) +
+  scalebar(peru, dist = 250, dist_unit = "km",
+           transform = TRUE, model = "WGS84",
+           st.size = 3.5, location = "bottomleft")
+
+#Crea una rampa de color diferente para el segundo Mapa.
+color = colorRampPalette(c('darkolivegreen1','springgreen', 'royalblue'))
+
+
+#Objeto p2 para almacenar el mapa de los departamentos del Perú y sus respectivas capitales
+p2 <- ggplot() +
+  geom_sf(data = peru, color = 'darkolivegreen', fill = color (25))  +
+  geom_point(cap_dep, mapping = aes(x = X, y = Y),
+             shape = 21, fill= 'khaki1', color= 'black', size=1.5) +
+  geom_sf_text(cap_dep, mapping = aes(label = Nombre),
+               colour = "black", size = 2, position = position_nudge(y = 0.2)) +
+  ggtitle('Perú : Capitales de Departamento') +
+  xlab('') +
+  ylab('') +
+  north(peru) +
+  scalebar(peru, dist = 250, dist_unit = "km",
+           transform = TRUE, model = "WGS84",
+           st.size = 3.5, location = "bottomleft")
+```
+
+Como puede observar, ninguno de los dos gráficos fueron generados todavía. Aqui utilizaremos la función `multiplot()` para generar un gráfico múltiple y la función `jpeg()` para guardar dicho gráfico en formato **JPEG**.
+
+```{r message=FALSE, warning=FALSE}
+#Mapa en JPEG
+jpeg("./Mapas/Peru2.jpeg", width = 2362, height = 1654, 
+     units = "px", pointsize =12, bg = "white",
+     res = 300, restoreConsole = TRUE)
+multiplot(p1, p2, cols = 2)
+dev.off()
+```
+Verifique que el Archivo  **Peru2.jpeg** dentro de la carpeta Mapas haya sido creado.
+
+Su mapa devería verse así:
+
+![](Mapas/Peru2.jpeg)
+
+Si todo salió bien hasta aquí
+
+**Felicitaciones !!!**
+
+Creaste tus primeros mapas utilizando R.\
+\
+\
+**CONTACTO**
+
+![](Imagen/Duber.jpg)<br/>
+M.Sc. Duberlí Elera Gonzáles<br/>
+Docente en la [Universidad Científica del Sur](https://www.cientifica.edu.pe/)<br/>
+Especialista Forestal en [Diamante Verde SRL](https://www.diamanteverdesrl.com/)<br/>
+Email: <duberelera@gmail.com><br/>
+[![](Imagen/Linkedin.png)](https://www.linkedin.com/in/duber-elera/)
+[![](Imagen/Facebook.png)](https://www.facebook.com/duberli.elera/)
+![](Imagen/WhatsApp.jpg){.callout} +51 986 626 642<br/>
